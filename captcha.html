@@ -233,48 +233,25 @@
       svg.appendChild(g);
     })();
 
-    // ── Submit ──
-    async function checkAnswer() {
-      const raw = document.getElementById('threat-response-field').value;
-      if (!raw.trim()) return;
-
-      if (Date.now() - pageLoadTime < 800) botSignals.push('too-fast');
-
-      let result;
-      try {
-        const res = await fetch('/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: CHALLENGE_TOKEN,
-            answer: raw.trim(),
-            hp: document.querySelector('.system-exit-confirmation').value || ""
-          })
-        });
-        result = await res.json();
-      } catch(e) {
-        document.getElementById('error-display').style.display = 'block';
-        return;
-      }
-
-      if (result.ok) {
-        window.location.reload();
-      } else {
-        document.getElementById('error-display').style.display = 'block';
-        if (result.remaining !== undefined && result.remaining <= 0) {
-          blockBot('max-attempts');
-        } else if (result.remaining !== undefined) {
-          document.getElementById('attempt-display').textContent =
-            result.remaining + ' attempt' + (result.remaining === 1 ? '' : 's') + ' remaining';
-        }
-        document.getElementById('threat-response-field').value = '';
-      }
+    // ── Submit — simple redirect, no fetch, works through any tunnel ──
+    function checkAnswer() {
+      const raw = document.getElementById('threat-response-field').value.trim();
+      if (!raw) return;
+      window.location.href = '/verify?token=' + encodeURIComponent(CHALLENGE_TOKEN) + '&answer=' + encodeURIComponent(raw);
     }
 
     document.getElementById('confirm-threat-detected').addEventListener('click', checkAnswer);
     document.getElementById('threat-response-field').addEventListener('keydown', e => {
       if (e.key === 'Enter') checkAnswer();
     });
+
+    // Show error if redirected back with error param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error')) {
+      document.getElementById('error-display').style.display = 'block';
+      const r = params.get('remaining');
+      if (r) document.getElementById('attempt-display').textContent = r + ' attempt' + (r === '1' ? '' : 's') + ' remaining';
+    }
 
     if (botSignals.length >= 2) setTimeout(() => blockBot('signals'), 300);
   </script>
